@@ -2,16 +2,11 @@
 
 An AI-powered recipe assistant that turns ingredients on hand into practical meal ideas. Snap your fridge, pantry, or countertop and get ingredient detection, recipe matching, and guided cooking in one workflow.
 
-<div align="center">
-
-<img width="1408" height="768" alt="Ingridio hero preview" src="https://github.com/user-attachments/assets/80e94e6e-7e7e-4c29-b71c-233ab7b8dc5f" />
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?style=for-the-badge&logo=flutter&logoColor=white)](https://flutter.dev)
 [![Gemini AI](https://img.shields.io/badge/Gemini_2.0_Flash-AI_Powered-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev)
 [![Cloud Run](https://img.shields.io/badge/Google_Cloud_Run-Deployed-4285F4?style=for-the-badge&logo=google-cloud&logoColor=white)](https://cloud.google.com/run)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
-
-[Live demo](https://ingridio-378480318821.europe-west1.run.app/) · [Repository](https://github.com/saadhtiwana/Ingridio)
 
 </div>
 
