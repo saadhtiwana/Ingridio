@@ -103,7 +103,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 onSettings: () => _setTab(_tabProfile),
                 bottomContentPadding: navBarHeight + 56,
               ),
-              ScanScreen(isActive: _tabIndex == _tabScan),
+              ScanScreen(
+                isActive: _tabIndex == _tabScan,
+                onClose: () => _setTab(_tabHome),
+              ),
               const PantryScreen(),
               const DiscoveryScreen(),
               const ProfileScreen(),

@@ -2,11 +2,15 @@ import 'dart:math' as math;
 import 'dart:ui' show PathMetric;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:ingridio/logic/pantry_manager.dart';
+import 'package:ingridio/logic/saved_recipes_store.dart';
 import 'package:ingridio/logic/user_preferences_store.dart';
 import 'package:ingridio/models/user_preferences.dart';
-import 'package:ingridio/screens/login_screen.dart';
+import 'package:ingridio/screens/auth_gate.dart';
 import 'package:ingridio/screens/personalize_screen.dart';
+import 'package:ingridio/services/auth_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -74,6 +78,22 @@ class _ProfileScreenState extends State<ProfileScreen>
     return values.join(', ');
   }
 
+  String _initials(String name) {
+    final List<String> parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((String p) => p.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) {
+      return '?';
+    }
+    if (parts.length == 1) {
+      return parts.first.characters.first.toUpperCase();
+    }
+    return (parts.first.characters.first + parts.last.characters.first)
+        .toUpperCase();
+  }
+
   Future<void> _openPersonalize() async {
     await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
@@ -90,6 +110,9 @@ class _ProfileScreenState extends State<ProfileScreen>
       UserPreferencesStore.notificationsEnabled =
           !UserPreferencesStore.notificationsEnabled;
     });
+    UserPreferencesStore.setNotificationsEnabled(
+      UserPreferencesStore.notificationsEnabled,
+    );
   }
 
   void _showLanguageDialog() {
@@ -109,7 +132,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 label: 'English (US)',
                 selected: current == 'English (US)',
                 onTap: () {
-                  UserPreferencesStore.selectedLanguage = 'English (US)';
+                  UserPreferencesStore.setLanguage('English (US)');
                   Navigator.of(ctx).pop();
                   setState(() {});
                 },
@@ -118,7 +141,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 label: 'Urdu',
                 selected: current == 'Urdu',
                 onTap: () {
-                  UserPreferencesStore.selectedLanguage = 'Urdu';
+                  UserPreferencesStore.setLanguage('Urdu');
                   Navigator.of(ctx).pop();
                   setState(() {});
                 },
@@ -127,7 +150,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 label: 'Arabic',
                 selected: current == 'Arabic',
                 onTap: () {
-                  UserPreferencesStore.selectedLanguage = 'Arabic';
+                  UserPreferencesStore.setLanguage('Arabic');
                   Navigator.of(ctx).pop();
                   setState(() {});
                 },
@@ -207,12 +230,80 @@ class _ProfileScreenState extends State<ProfileScreen>
       },
     );
     if (ok == true && mounted) {
+      try {
+        await AuthService.instance.signOut();
+      } on Object {
+        // Continue to clear local state even if remote signout fails.
+      }
       UserPreferencesStore.reset();
+      SavedRecipesStore.instance.clearLocal();
+      PantryManager.instance.clearLocal();
+      if (!mounted) {
+        return;
+      }
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+        MaterialPageRoute<void>(builder: (_) => const AuthGate()),
         (Route<dynamic> route) => false,
       );
     }
+  }
+
+  Future<void> _showJwtDialog() async {
+    final String? token = await AuthService.instance.idToken();
+    if (!mounted) {
+      return;
+    }
+    showDialog<void>(
+      context: context,
+      builder: (BuildContext ctx) {
+        return AlertDialog(
+          title: Text(
+            'Firebase Auth JWT (ID Token)',
+            style: GoogleFonts.plusJakartaSans(
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
+            ),
+          ),
+          content: SingleChildScrollView(
+            child: SelectableText(
+              token ?? 'Not signed in.',
+              style: GoogleFonts.robotoMono(fontSize: 11, height: 1.4),
+            ),
+          ),
+          actions: <Widget>[
+            if (token != null)
+              TextButton(
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: token));
+                  if (!ctx.mounted) {
+                    return;
+                  }
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    const SnackBar(content: Text('Token copied')),
+                  );
+                },
+                child: Text(
+                  'Copy',
+                  style: GoogleFonts.beVietnamPro(
+                    fontWeight: FontWeight.w700,
+                    color: _primary,
+                  ),
+                ),
+              ),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(
+                'Close',
+                style: GoogleFonts.beVietnamPro(
+                  fontWeight: FontWeight.w700,
+                  color: _primary,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -357,6 +448,14 @@ class _ProfileScreenState extends State<ProfileScreen>
                         height: 128,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(14),
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: <Color>[
+                              _primaryContainer,
+                              _primary,
+                            ],
+                          ),
                           boxShadow: <BoxShadow>[
                             BoxShadow(
                               color: Colors.black.withValues(alpha: 0.22),
@@ -365,13 +464,14 @@ class _ProfileScreenState extends State<ProfileScreen>
                             ),
                           ],
                         ),
-                        clipBehavior: Clip.antiAlias,
-                        child: Image.asset(
-                          'assets/images/profile.jpg',
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => const ColoredBox(
-                            color: _surfaceContainerHigh,
-                            child: Icon(Icons.person, size: 48, color: _outline),
+                        alignment: Alignment.center,
+                        child: Text(
+                          _initials(_displayName),
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 56,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            letterSpacing: -1,
                           ),
                         ),
                       ),
@@ -521,6 +621,45 @@ class _ProfileScreenState extends State<ProfileScreen>
                         color: _secondaryContainer,
                       ),
                     ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Divider(height: 1, thickness: 1, color: _outlineVariant.withValues(alpha: 0.25)),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _showJwtDialog,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                child: Row(
+                  children: <Widget>[
+                    const Icon(Icons.vpn_key_rounded, color: _secondary),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            'View Auth Token (JWT)',
+                            style: GoogleFonts.beVietnamPro(
+                              fontWeight: FontWeight.w500,
+                              fontSize: 16,
+                              color: _onSurface,
+                            ),
+                          ),
+                          Text(
+                            'Firebase Auth ID token',
+                            style: GoogleFonts.beVietnamPro(
+                              fontSize: 12,
+                              color: _onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right_rounded, color: _outline, size: 22),
                   ],
                 ),
               ),

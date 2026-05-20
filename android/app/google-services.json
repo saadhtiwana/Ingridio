@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "493177221674",
+    "project_id": "ingridio-abc12",
+    "storage_bucket": "ingridio-abc12.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:493177221674:android:9ba7f6812f433789970953",
+        "android_client_info": {
+          "package_name": "com.ingridio.ingridio"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBBxNT9YkswwY0hlAZYPwddvX1gF4znbUw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

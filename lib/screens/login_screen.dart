@@ -1,8 +1,9 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:ingridio/screens/home_screen.dart';
-import 'package:ingridio/screens/personalize_screen.dart';
+import 'package:ingridio/screens/auth_gate.dart';
+import 'package:ingridio/screens/signup_screen.dart';
+import 'package:ingridio/services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -12,12 +13,10 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  static const String _validEmail = 'ahmad@ingridio.com';
-  static const String _validPassword = '1234';
-
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isPasswordHidden = true;
+  bool _submitting = false;
 
   static const Color _primary = Color(0xFF9D4300);
   static const Color _background = Color(0xFFFFF8F5);
@@ -39,24 +38,36 @@ class _LoginScreenState extends State<LoginScreen> {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void _signIn() {
+  Future<void> _signIn() async {
     final String email = _emailController.text.trim();
-    final String password = _passwordController.text.trim();
-    if (email == _validEmail && password == _validPassword) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(
-          builder: (_) => const PersonalizeScreen(),
-        ),
-      );
+    final String password = _passwordController.text;
+    if (email.isEmpty || password.isEmpty) {
+      _showSnack('Email and password are required.');
       return;
     }
-    _showSnack('Invalid credentials');
+    setState(() => _submitting = true);
+    try {
+      await AuthService.instance.signIn(email: email, password: password);
+      if (!mounted) {
+        return;
+      }
+      // AuthGate listens to authStateChanges and will swap to HomeScreen.
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute<void>(builder: (_) => const AuthGate()),
+        (Route<dynamic> route) => false,
+      );
+    } on Object catch (e) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _submitting = false);
+      _showSnack(AuthService.describeAuthError(e));
+    }
   }
 
-  void _continueAsGuest() {
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
-      (Route<dynamic> route) => false,
+  void _openSignUp() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const SignupScreen()),
     );
   }
 
@@ -107,12 +118,13 @@ class _LoginScreenState extends State<LoginScreen> {
                         emailController: _emailController,
                         passwordController: _passwordController,
                         isPasswordHidden: _isPasswordHidden,
+                        submitting: _submitting,
                         onPasswordToggle: () {
                           setState(() => _isPasswordHidden = !_isPasswordHidden);
                         },
-                        onSignIn: _signIn,
+                        onSignIn: _submitting ? null : _signIn,
                         onSocialTap: () => _showSnack('Coming soon'),
-                        onContinueAsGuest: _continueAsGuest,
+                        onCreateAccount: _submitting ? null : _openSignUp,
                         onSurfaceVariant: _onSurfaceVariant,
                       ),
                       const SizedBox(height: 24),
@@ -171,10 +183,11 @@ class _AuthCard extends StatelessWidget {
     required this.emailController,
     required this.passwordController,
     required this.isPasswordHidden,
+    required this.submitting,
     required this.onPasswordToggle,
     required this.onSignIn,
     required this.onSocialTap,
-    required this.onContinueAsGuest,
+    required this.onCreateAccount,
     required this.onSurfaceVariant,
   });
 
@@ -186,10 +199,11 @@ class _AuthCard extends StatelessWidget {
   final TextEditingController emailController;
   final TextEditingController passwordController;
   final bool isPasswordHidden;
+  final bool submitting;
   final VoidCallback onPasswordToggle;
-  final VoidCallback onSignIn;
+  final VoidCallback? onSignIn;
   final VoidCallback onSocialTap;
-  final VoidCallback onContinueAsGuest;
+  final VoidCallback? onCreateAccount;
 
   @override
   Widget build(BuildContext context) {
@@ -298,15 +312,24 @@ class _AuthCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(16),
                       ),
                     ),
-                    child: const Text(
-                      'Sign In',
-                      style: TextStyle(
-                        fontFamily: 'Plus Jakarta Sans',
-                        fontWeight: FontWeight.w700,
-                        fontSize: 20,
-                        color: Colors.white,
-                      ),
-                    ),
+                    child: submitting
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            'Sign In',
+                            style: TextStyle(
+                              fontFamily: 'Plus Jakarta Sans',
+                              fontWeight: FontWeight.w700,
+                              fontSize: 20,
+                              color: Colors.white,
+                            ),
+                          ),
                   ),
                 ),
               ),
@@ -391,20 +414,20 @@ class _AuthCard extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               TextButton(
-                onPressed: onContinueAsGuest,
+                onPressed: onCreateAccount,
                 style: TextButton.styleFrom(
-                  foregroundColor: onSurfaceVariant,
+                  foregroundColor: primary,
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 child: Text(
-                  'Continue as Guest',
+                  "Don't have an account? Create one",
                   style: TextStyle(
                     fontFamily: 'Be Vietnam Pro',
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                     fontSize: 14,
-                    color: onSurfaceVariant,
+                    color: primary,
                   ),
                 ),
               ),

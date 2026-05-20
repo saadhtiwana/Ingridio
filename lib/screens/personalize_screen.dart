@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:ingridio/logic/user_preferences_store.dart';
 import 'package:ingridio/models/user_preferences.dart';
-import 'package:ingridio/screens/home_screen.dart';
+import 'package:ingridio/screens/auth_gate.dart';
 
 class PersonalizeScreen extends StatefulWidget {
   const PersonalizeScreen({super.key, this.navigateHomeOnSave = true});
@@ -175,7 +175,7 @@ class _PersonalizeScreenState extends State<PersonalizeScreen> {
     );
     if (widget.navigateHomeOnSave) {
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
+        MaterialPageRoute<void>(builder: (_) => const AuthGate()),
         (Route<dynamic> route) => false,
       );
     } else {

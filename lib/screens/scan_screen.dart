@@ -15,9 +15,13 @@ import 'package:permission_handler/permission_handler.dart';
 enum _WebCameraInit { success, permissionDenied, exhausted }
 
 class ScanScreen extends StatefulWidget {
-  const ScanScreen({super.key, required this.isActive});
+  const ScanScreen({super.key, required this.isActive, this.onClose});
 
   final bool isActive;
+
+  /// Called when the user taps the close (X) button on the scan HUD.
+  /// HomeScreen wires this to switch back to the Home tab.
+  final VoidCallback? onClose;
 
   @override
   State<ScanScreen> createState() => _ScanScreenState();
@@ -573,6 +577,10 @@ class _ScanScreenState extends State<ScanScreen>
           ),
           _TopBar(
             onClose: () {
+              if (widget.onClose != null) {
+                widget.onClose!();
+                return;
+              }
               final NavigatorState nav = Navigator.of(context);
               if (nav.canPop()) {
                 nav.pop();
