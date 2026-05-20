@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🥘 Ingridio
+# Ingridio
 
 ### *Snap your fridge. Cook what's already there.*
 
