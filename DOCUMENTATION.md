@@ -990,13 +990,8 @@ A 2-minute live walk-through that hits every required feature.
 | Scanner close (X) button does nothing | Was a bug in early versions (tab routing) | Fixed in current version — now calls `onClose` callback that switches tab |
 | Pre-existing `withOpacity` deprecation warnings | Flutter 3.27+ migration to `withValues` | Cosmetic; will be cleaned in a future pass. |
 
----
 
-## 22. Contributors & license
 
-### Contributors
-- [saadhtiwana](https://github.com/saadhtiwana) — original product concept, UI design
-- [abdullahxdev](https://github.com/abdullahxdev) — Firebase integration, JWT auth, Firestore persistence
 
 ### License
 MIT License — see [LICENSE](LICENSE).
