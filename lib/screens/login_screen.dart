@@ -71,6 +71,26 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  Future<void> _forgotPassword() async {
+    final String email = _emailController.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      _showSnack('Enter your email above, then tap Forgot again.');
+      return;
+    }
+    try {
+      await AuthService.instance.sendPasswordResetEmail(email);
+      if (!mounted) {
+        return;
+      }
+      _showSnack('Password reset link sent to $email.');
+    } on Object catch (e) {
+      if (!mounted) {
+        return;
+      }
+      _showSnack(AuthService.describeAuthError(e));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -123,7 +143,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           setState(() => _isPasswordHidden = !_isPasswordHidden);
                         },
                         onSignIn: _submitting ? null : _signIn,
-                        onSocialTap: () => _showSnack('Coming soon'),
+                        onForgotPassword: _submitting ? null : _forgotPassword,
                         onCreateAccount: _submitting ? null : _openSignUp,
                         onSurfaceVariant: _onSurfaceVariant,
                       ),
@@ -186,7 +206,7 @@ class _AuthCard extends StatelessWidget {
     required this.submitting,
     required this.onPasswordToggle,
     required this.onSignIn,
-    required this.onSocialTap,
+    required this.onForgotPassword,
     required this.onCreateAccount,
     required this.onSurfaceVariant,
   });
@@ -202,7 +222,7 @@ class _AuthCard extends StatelessWidget {
   final bool submitting;
   final VoidCallback onPasswordToggle;
   final VoidCallback? onSignIn;
-  final VoidCallback onSocialTap;
+  final VoidCallback? onForgotPassword;
   final VoidCallback? onCreateAccount;
 
   @override
@@ -268,7 +288,7 @@ class _AuthCard extends StatelessWidget {
                   ),
                 ),
                 trailingLabel: GestureDetector(
-                  onTap: onSocialTap,
+                  onTap: onForgotPassword,
                   child: Text(
                     'Forgot?',
                     style: TextStyle(
@@ -333,59 +353,7 @@ class _AuthCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: Divider(
-                      color: const Color(0xFFE0C0B1).withOpacity(0.3),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(
-                      'OR CONTINUE WITH',
-                      style: TextStyle(
-                        fontFamily: 'Be Vietnam Pro',
-                        fontWeight: FontWeight.w700,
-                        fontSize: 11,
-                        letterSpacing: 1.2,
-                        color: const Color(0xFF8C7164).withOpacity(0.6),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Divider(
-                      color: const Color(0xFFE0C0B1).withOpacity(0.3),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: _SocialButton(
-                      label: 'Google',
-                      icon: const _GoogleLogo(),
-                      onTap: onSocialTap,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _SocialButton(
-                      label: 'Apple',
-                      icon: const Icon(
-                        Icons.apple,
-                        color: Colors.black,
-                        size: 20,
-                      ),
-                      onTap: onSocialTap,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
               Row(
                 children: <Widget>[
                   Expanded(

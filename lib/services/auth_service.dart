@@ -38,6 +38,10 @@ class AuthService {
 
   Future<void> signOut() => _auth.signOut();
 
+  Future<void> sendPasswordResetEmail(String email) {
+    return _auth.sendPasswordResetEmail(email: email.trim());
+  }
+
   /// Returns the current user's Firebase ID token (a JWT).
   /// Used on the Profile screen to demonstrate JWT-based auth.
   Future<String?> idToken({bool forceRefresh = false}) async {

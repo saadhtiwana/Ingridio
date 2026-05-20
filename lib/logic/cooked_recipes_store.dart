@@ -9,8 +9,15 @@ class CookedRecipesStore extends ChangeNotifier {
 
   bool contains(String recipeId) => _ids.contains(recipeId);
 
+  int get count => _ids.length;
+
   void add(String recipeId) {
     _ids.add(recipeId);
+    notifyListeners();
+  }
+
+  void clearLocal() {
+    _ids.clear();
     notifyListeners();
   }
 }

@@ -1,9 +1,11 @@
 import 'dart:math' as math;
 import 'dart:ui' show PathMetric;
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:ingridio/logic/cooked_recipes_store.dart';
 import 'package:ingridio/logic/pantry_manager.dart';
 import 'package:ingridio/logic/saved_recipes_store.dart';
 import 'package:ingridio/logic/user_preferences_store.dart';
@@ -43,8 +45,6 @@ class _ProfileScreenState extends State<ProfileScreen>
   late final AnimationController _avatarTiltController;
   late final Animation<double> _avatarTilt;
 
-  static const String _defaultName = 'Ahmad Mustafa';
-
   @override
   void initState() {
     super.initState();
@@ -66,10 +66,29 @@ class _ProfileScreenState extends State<ProfileScreen>
     super.dispose();
   }
 
-  String get _displayName =>
-      UserPreferencesStore.current?.displayName?.trim().isNotEmpty == true
-          ? UserPreferencesStore.current!.displayName!.trim()
-          : _defaultName;
+  String get _displayName {
+    // Priority: saved prefs displayName → Firebase Auth displayName → email username → 'Cook'.
+    final String? prefName =
+        UserPreferencesStore.current?.displayName?.trim();
+    if (prefName != null && prefName.isNotEmpty) {
+      return prefName;
+    }
+    final User? user = FirebaseAuth.instance.currentUser;
+    final String? authName = user?.displayName?.trim();
+    if (authName != null && authName.isNotEmpty) {
+      return authName;
+    }
+    final String? email = user?.email;
+    if (email != null && email.contains('@')) {
+      return email.split('@').first;
+    }
+    return 'Cook';
+  }
+
+  String get _profileSubtitle {
+    final String? email = FirebaseAuth.instance.currentUser?.email;
+    return email ?? 'Welcome to Ingridio';
+  }
 
   String _preferenceLine(List<String> values) {
     if (values.isEmpty) {
@@ -238,6 +257,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       UserPreferencesStore.reset();
       SavedRecipesStore.instance.clearLocal();
       PantryManager.instance.clearLocal();
+      CookedRecipesStore.instance.clearLocal();
       if (!mounted) {
         return;
       }
@@ -338,14 +358,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                           letterSpacing: -0.5,
                           color: _onSurface,
                         ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () {},
-                      icon: const Icon(
-                        Icons.settings_rounded,
-                        color: _primary,
-                        size: 26,
                       ),
                     ),
                   ],
@@ -524,12 +536,11 @@ class _ProfileScreenState extends State<ProfileScreen>
         ),
         const SizedBox(height: 4),
         Text(
-          'Master Saucier',
+          _profileSubtitle,
           textAlign: TextAlign.center,
           style: GoogleFonts.beVietnamPro(
-            fontSize: 16,
+            fontSize: 14,
             fontWeight: FontWeight.w500,
-            fontStyle: FontStyle.italic,
             color: _secondary,
           ),
         ),
@@ -537,20 +548,32 @@ class _ProfileScreenState extends State<ProfileScreen>
         Row(
           children: <Widget>[
             Expanded(
-              child: _StatTile(
-                icon: Icons.local_fire_department_rounded,
-                iconColor: _tertiaryContainer,
-                label: 'Streak',
-                value: '14 Days',
+              child: ListenableBuilder(
+                listenable: SavedRecipesStore.instance,
+                builder: (BuildContext context, Widget? child) {
+                  final int n = SavedRecipesStore.instance.ids.length;
+                  return _StatTile(
+                    icon: Icons.bookmark_rounded,
+                    iconColor: _tertiaryContainer,
+                    label: 'Saved',
+                    value: n == 1 ? '1 Recipe' : '$n Recipes',
+                  );
+                },
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: _StatTile(
-                icon: Icons.restaurant_rounded,
-                iconColor: _primaryContainer,
-                label: 'Cooked',
-                value: '42 Recipes',
+              child: ListenableBuilder(
+                listenable: CookedRecipesStore.instance,
+                builder: (BuildContext context, Widget? child) {
+                  final int n = CookedRecipesStore.instance.count;
+                  return _StatTile(
+                    icon: Icons.restaurant_rounded,
+                    iconColor: _primaryContainer,
+                    label: 'Cooked',
+                    value: n == 1 ? '1 Recipe' : '$n Recipes',
+                  );
+                },
               ),
             ),
           ],

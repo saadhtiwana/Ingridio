@@ -245,12 +245,71 @@ class _PantryScreenState extends State<PantryScreen> {
               Expanded(
                 child: filtered.isEmpty
                     ? Center(
-                        child: Text(
-                          'No ingredients found',
-                          style: GoogleFonts.beVietnamPro(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                            color: _onSurfaceVariant,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 32),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              Container(
+                                width: 72,
+                                height: 72,
+                                decoration: const BoxDecoration(
+                                  color: _surfaceContainerLow,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.kitchen_rounded,
+                                  size: 36,
+                                  color: _primaryContainer,
+                                ),
+                              ),
+                              const SizedBox(height: 18),
+                              Text(
+                                all.isEmpty
+                                    ? 'Your pantry is empty'
+                                    : 'No matches for your search',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w700,
+                                  color: _onSurface,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                all.isEmpty
+                                    ? 'Add ingredients you have at home or scan them from a photo.'
+                                    : 'Try a different ingredient name.',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.beVietnamPro(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: _onSurfaceVariant,
+                                  height: 1.4,
+                                ),
+                              ),
+                              if (all.isEmpty) ...<Widget>[
+                                const SizedBox(height: 20),
+                                FilledButton.icon(
+                                  onPressed: _showAddSheet,
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: _primaryContainer,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                      vertical: 14,
+                                    ),
+                                  ),
+                                  icon: const Icon(Icons.add_rounded),
+                                  label: Text(
+                                    'Add Ingredient',
+                                    style: GoogleFonts.beVietnamPro(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                       )
