@@ -278,29 +278,6 @@ For deep technical detail — every store, every screen, every Firestore documen
 
 ---
 
-## 👥 Contributors
-
-<table>
-<tr>
-<td align="center">
-<a href="https://github.com/saadhtiwana">
-<img src="https://github.com/saadhtiwana.png" width="80" style="border-radius:50%"/><br/>
-<sub><b>saadhtiwana</b></sub>
-</a><br/>
-<sub>Product concept · UI design</sub>
-</td>
-<td align="center">
-<a href="https://github.com/abdullahxdev">
-<img src="https://github.com/abdullahxdev.png" width="80" style="border-radius:50%"/><br/>
-<sub><b>abdullahxdev</b></sub>
-</a><br/>
-<sub>Firebase integration · JWT auth · Firestore</sub>
-</td>
-</tr>
-</table>
-
----
-
 ## 📜 License
 
 This project is licensed under the **MIT License** — see [LICENSE](LICENSE) for details.
