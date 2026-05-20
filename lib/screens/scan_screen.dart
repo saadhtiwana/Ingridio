@@ -27,8 +27,7 @@ class ScanScreen extends StatefulWidget {
   State<ScanScreen> createState() => _ScanScreenState();
 }
 
-class _ScanScreenState extends State<ScanScreen>
-    with TickerProviderStateMixin {
+class _ScanScreenState extends State<ScanScreen> {
   static const Color _primaryContainer = Color(0xFFF97316);
   static const String _kDefaultNoCameraMessage =
       'No camera found on this device';
@@ -48,20 +47,9 @@ class _ScanScreenState extends State<ScanScreen>
 
   int _cameraSession = 0;
 
-  late AnimationController _scanLineController;
-  late Animation<double> _scanLineAnimation;
-
   @override
   void initState() {
     super.initState();
-    _scanLineController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat();
-    _scanLineAnimation = CurvedAnimation(
-      parent: _scanLineController,
-      curve: Curves.linear,
-    );
     if (widget.isActive) {
       _initializing = true;
       unawaited(_initCamera());
@@ -175,11 +163,14 @@ class _ScanScreenState extends State<ScanScreen>
       }
       back ??= cameras.first;
 
+      // Resolution kept LOW + format yuv420 to mitigate a known Flutter engine race on
+      // Android 14+ where ImageReaderSurfaceProducer.onImage fires after FlutterJNI detaches.
+      // See: https://github.com/flutter/flutter/issues/151295
       final CameraController controller = CameraController(
         back,
-        ResolutionPreset.medium,
+        ResolutionPreset.low,
         enableAudio: false,
-        imageFormatGroup: ImageFormatGroup.jpeg,
+        imageFormatGroup: ImageFormatGroup.yuv420,
       );
       await controller.initialize();
       await controller.setFlashMode(
@@ -412,11 +403,21 @@ class _ScanScreenState extends State<ScanScreen>
     if (!mounted) {
       return;
     }
+    Uint8List? previewBytes;
+    try {
+      previewBytes = await imageFile.readAsBytes();
+    } on Object {
+      previewBytes = null;
+    }
+    if (!mounted) {
+      return;
+    }
     showDialog<void>(
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black.withValues(alpha: 0.88),
-      builder: (BuildContext ctx) => const _DetectionLoadingDialog(),
+      builder: (BuildContext ctx) =>
+          _DetectionLoadingDialog(previewBytes: previewBytes),
     );
 
     List<ScannedIngredient> detected = <ScannedIngredient>[];
@@ -491,7 +492,6 @@ class _ScanScreenState extends State<ScanScreen>
   @override
   void dispose() {
     _cameraSession++;
-    _scanLineController.dispose();
     unawaited(_releaseCameraHardware());
     super.dispose();
   }
@@ -544,20 +544,6 @@ class _ScanScreenState extends State<ScanScreen>
             ),
           ),
           const _ScanHudOverlay(primaryContainer: _primaryContainer),
-          Positioned.fill(
-            child: AnimatedBuilder(
-              animation: _scanLineAnimation,
-              builder: (BuildContext context, Widget? child) {
-                return CustomPaint(
-                  painter: _ScanLinePainter(
-                    progress: _scanLineAnimation.value,
-                    color: _primaryContainer,
-                  ),
-                  child: child,
-                );
-              },
-            ),
-          ),
           _BottomControls(
             onGallery: _pickFromGallery,
             galleryEnabled: !_capturing,
@@ -760,14 +746,14 @@ class _ScanHudOverlay extends StatelessWidget {
   });
 
   final Color primaryContainer;
-  static const double _frameVerticalOffset = -154;
+  static const double _frameVerticalOffset = -120;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
-        final double frameW = (constraints.maxWidth * 0.61).clamp(0.0, 286.0);
-        final double frameH = (constraints.maxHeight * 0.23).clamp(140.0, 220.0);
+        final double frameW = (constraints.maxWidth * 0.72).clamp(0.0, 320.0);
+        final double frameH = (constraints.maxHeight * 0.26).clamp(160.0, 240.0);
 
         return Stack(
           alignment: Alignment.center,
@@ -778,26 +764,42 @@ class _ScanHudOverlay extends StatelessWidget {
                 child: SizedBox(
                   width: frameW,
                   height: frameH,
-                  child: Stack(
+                  child: const Stack(
                     clipBehavior: Clip.none,
                     children: <Widget>[
-                      _CornerBracket(alignment: Alignment.topLeft, color: primaryContainer),
-                      _CornerBracket(alignment: Alignment.topRight, color: primaryContainer),
-                      _CornerBracket(alignment: Alignment.bottomLeft, color: primaryContainer),
-                      _CornerBracket(alignment: Alignment.bottomRight, color: primaryContainer),
-                      const _StaggerPulseDot(
-                        alignment: Alignment(-0.35, -0.45),
-                        delay: Duration.zero,
-                      ),
-                      const _StaggerPulseDot(
-                        alignment: Alignment(0.42, 0.38),
-                        delay: Duration(milliseconds: 300),
-                      ),
-                      const _StaggerPulseDot(
-                        alignment: Alignment(0.05, 0.02),
-                        delay: Duration(milliseconds: 600),
-                      ),
+                      _CornerBracket(alignment: Alignment.topLeft),
+                      _CornerBracket(alignment: Alignment.topRight),
+                      _CornerBracket(alignment: Alignment.bottomLeft),
+                      _CornerBracket(alignment: Alignment.bottomRight),
                     ],
+                  ),
+                ),
+              ),
+            ),
+            // Subtle text hint above the frame.
+            IgnorePointer(
+              child: Transform.translate(
+                offset: Offset(0, _frameVerticalOffset - frameH / 2 - 36),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.18),
+                    ),
+                  ),
+                  child: Text(
+                    'Point at your ingredients',
+                    style: GoogleFonts.beVietnamPro(
+                      color: Colors.white.withValues(alpha: 0.92),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0.2,
+                    ),
                   ),
                 ),
               ),
@@ -810,19 +812,16 @@ class _ScanHudOverlay extends StatelessWidget {
 }
 
 class _CornerBracket extends StatelessWidget {
-  const _CornerBracket({
-    required this.alignment,
-    required this.color,
-  });
+  const _CornerBracket({required this.alignment});
 
   final Alignment alignment;
-  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    const double s = 48;
-    const double t = 4;
-    const double r = 16;
+    const double s = 30;
+    const double t = 2.5;
+    const double r = 12;
+    const Color color = Colors.white;
     return Align(
       alignment: alignment,
       child: Container(
@@ -845,135 +844,28 @@ class _CornerBracket extends StatelessWidget {
           ),
           border: Border(
             top: alignment == Alignment.topLeft || alignment == Alignment.topRight
-                ? BorderSide(color: color, width: t)
+                ? const BorderSide(color: color, width: t)
                 : BorderSide.none,
             bottom: alignment == Alignment.bottomLeft || alignment == Alignment.bottomRight
-                ? BorderSide(color: color, width: t)
+                ? const BorderSide(color: color, width: t)
                 : BorderSide.none,
             left: alignment == Alignment.topLeft || alignment == Alignment.bottomLeft
-                ? BorderSide(color: color, width: t)
+                ? const BorderSide(color: color, width: t)
                 : BorderSide.none,
             right: alignment == Alignment.topRight || alignment == Alignment.bottomRight
-                ? BorderSide(color: color, width: t)
+                ? const BorderSide(color: color, width: t)
                 : BorderSide.none,
           ),
           boxShadow: <BoxShadow>[
             BoxShadow(
-              color: color.withValues(alpha: 0.45),
-              blurRadius: 18,
-              spreadRadius: 0,
+              color: Colors.black.withValues(alpha: 0.35),
+              blurRadius: 8,
+              offset: const Offset(0, 1),
             ),
           ],
         ),
       ),
     );
-  }
-}
-
-class _StaggerPulseDot extends StatefulWidget {
-  const _StaggerPulseDot({
-    required this.alignment,
-    required this.delay,
-  });
-
-  final Alignment alignment;
-  final Duration delay;
-
-  @override
-  State<_StaggerPulseDot> createState() => _StaggerPulseDotState();
-}
-
-class _StaggerPulseDotState extends State<_StaggerPulseDot>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _c;
-  late Animation<double> _opacity;
-
-  @override
-  void initState() {
-    super.initState();
-    _c = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
-    _opacity = Tween<double>(begin: 0.35, end: 1.0).animate(
-      CurvedAnimation(parent: _c, curve: Curves.easeInOut),
-    );
-    Future<void>.delayed(widget.delay, () {
-      if (mounted) {
-        _c.repeat(reverse: true);
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: widget.alignment,
-      child: AnimatedBuilder(
-        animation: _opacity,
-        builder: (BuildContext context, Widget? child) {
-          return Opacity(
-            opacity: _opacity.value,
-            child: Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white,
-                boxShadow: <BoxShadow>[
-                  BoxShadow(
-                    color: Colors.white.withValues(alpha: 0.85),
-                    blurRadius: 10,
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _ScanLinePainter extends CustomPainter {
-  _ScanLinePainter({
-    required this.progress,
-    required this.color,
-  });
-
-  final double progress;
-  final Color color;
-  static const double _frameVerticalOffset = -132;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final double frameW = (size.width * 0.68).clamp(0.0, 320.0);
-    final double frameH = (size.height * 0.28).clamp(160.0, 250.0);
-    final double left = (size.width - frameW) / 2;
-    final double top = (size.height - frameH) / 2 + _frameVerticalOffset;
-    final double y = top + 4 + (frameH - 8) * progress;
-
-    final Paint glow = Paint()
-      ..color = color.withValues(alpha: 0.35)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
-    final Paint line = Paint()
-      ..color = color
-      ..strokeWidth = 2
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawLine(Offset(left + 8, y), Offset(left + frameW - 8, y), glow);
-    canvas.drawLine(Offset(left + 8, y), Offset(left + frameW - 8, y), line);
-  }
-
-  @override
-  bool shouldRepaint(covariant _ScanLinePainter oldDelegate) {
-    return oldDelegate.progress != progress || oldDelegate.color != color;
   }
 }
 
@@ -1319,10 +1211,52 @@ class _CaptureButton extends StatelessWidget {
   }
 }
 
-class _DetectionLoadingDialog extends StatelessWidget {
-  const _DetectionLoadingDialog();
+class _DetectionLoadingDialog extends StatefulWidget {
+  const _DetectionLoadingDialog({required this.previewBytes});
 
+  final Uint8List? previewBytes;
+
+  @override
+  State<_DetectionLoadingDialog> createState() =>
+      _DetectionLoadingDialogState();
+}
+
+class _DetectionLoadingDialogState extends State<_DetectionLoadingDialog> {
+  static const Color _primary = Color(0xFF9D4300);
   static const Color _primaryContainer = Color(0xFFF97316);
+  static const Color _background = Color(0xFFFFF8F5);
+  static const Color _onSurface = Color(0xFF2F1400);
+  static const Color _onSurfaceVariant = Color(0xFF584237);
+  static const Color _surfaceLow = Color(0xFFFFF1E9);
+
+  static const List<String> _steps = <String>[
+    'Analyzing your photo',
+    'Detecting ingredients',
+    'Generating recipes',
+  ];
+
+  int _currentStep = 0;
+  Timer? _stepTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    // Cycle through the step text every 1.6s so the user sees motion.
+    _stepTimer = Timer.periodic(const Duration(milliseconds: 1600), (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _currentStep = (_currentStep + 1) % _steps.length;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _stepTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1330,59 +1264,239 @@ class _DetectionLoadingDialog extends StatelessWidget {
       canPop: false,
       child: Center(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(22),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-              child: Container(
-                width: double.infinity,
-                constraints: const BoxConstraints(maxWidth: 340),
-                padding: const EdgeInsets.fromLTRB(24, 22, 24, 22),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1A1A1A).withValues(alpha: 0.88),
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Container(
+            width: double.infinity,
+            constraints: const BoxConstraints(maxWidth: 360),
+            decoration: BoxDecoration(
+              color: _background,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.30),
+                  blurRadius: 60,
+                  offset: const Offset(0, 24),
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    const SizedBox(
-                      width: 46,
-                      height: 46,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 3,
-                        color: _primaryContainer,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      'Identifying ingredients',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.plusJakartaSans(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.2,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'This can take a few seconds while the AI scans your photo.',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.beVietnamPro(
-                        color: Colors.white.withValues(alpha: 0.78),
-                        fontSize: 13,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                // Photo preview at the top.
+                ClipRRect(
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(24),
+                    topRight: Radius.circular(24),
+                  ),
+                  child: AspectRatio(
+                    aspectRatio: 16 / 10,
+                    child: widget.previewBytes != null
+                        ? Stack(
+                            fit: StackFit.expand,
+                            children: <Widget>[
+                              Image.memory(
+                                widget.previewBytes!,
+                                fit: BoxFit.cover,
+                                gaplessPlayback: true,
+                              ),
+                              // Soft scrim so the spinner reads on bright photos.
+                              DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: <Color>[
+                                      Colors.black.withValues(alpha: 0.05),
+                                      Colors.black.withValues(alpha: 0.35),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              // AI badge in the corner.
+                              Positioned(
+                                top: 12,
+                                left: 12,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.5),
+                                    borderRadius: BorderRadius.circular(999),
+                                    border: Border.all(
+                                      color:
+                                          Colors.white.withValues(alpha: 0.25),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: <Widget>[
+                                      const Icon(
+                                        Icons.auto_awesome_rounded,
+                                        color: Colors.white,
+                                        size: 12,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'GEMINI AI',
+                                        style: GoogleFonts.beVietnamPro(
+                                          color: Colors.white,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 1.2,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        : Container(
+                            color: _surfaceLow,
+                            child: const Icon(
+                              Icons.image_rounded,
+                              color: _primaryContainer,
+                              size: 48,
+                            ),
+                          ),
+                  ),
                 ),
-              ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      const _BouncingDots(color: _primaryContainer),
+                      const SizedBox(height: 18),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        child: Text(
+                          _steps[_currentStep],
+                          key: ValueKey<int>(_currentStep),
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.plusJakartaSans(
+                            color: _onSurface,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'This usually takes 3–10 seconds.',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.beVietnamPro(
+                          color: _onSurfaceVariant,
+                          fontSize: 13,
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      // Step progress indicators.
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List<Widget>.generate(_steps.length, (int i) {
+                          final bool active = i == _currentStep;
+                          return AnimatedContainer(
+                            duration: const Duration(milliseconds: 280),
+                            curve: Curves.easeOut,
+                            margin: const EdgeInsets.symmetric(horizontal: 3),
+                            height: 4,
+                            width: active ? 24 : 8,
+                            decoration: BoxDecoration(
+                              color: active
+                                  ? _primary
+                                  : _onSurfaceVariant.withValues(alpha: 0.25),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                          );
+                        }),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Three dots that bounce in a wave — a friendlier loader than a spinner.
+class _BouncingDots extends StatefulWidget {
+  const _BouncingDots({required this.color});
+
+  final Color color;
+
+  @override
+  State<_BouncingDots> createState() => _BouncingDotsState();
+}
+
+class _BouncingDotsState extends State<_BouncingDots>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  double _dotOffset(double t, double phase) {
+    final double v = ((t + phase) % 1.0);
+    // Smooth sin-like bounce.
+    final double normalised = (v < 0.5) ? (v * 2) : (1 - (v - 0.5) * 2);
+    return -10 * normalised;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (BuildContext context, Widget? child) {
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List<Widget>.generate(3, (int i) {
+            final double offset =
+                _dotOffset(_controller.value, -i * 0.18);
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 5),
+              child: Transform.translate(
+                offset: Offset(0, offset),
+                child: Container(
+                  width: 11,
+                  height: 11,
+                  decoration: BoxDecoration(
+                    color: widget.color,
+                    shape: BoxShape.circle,
+                    boxShadow: <BoxShadow>[
+                      BoxShadow(
+                        color: widget.color.withValues(alpha: 0.4),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+        );
+      },
     );
   }
 }

@@ -12,6 +12,7 @@ import 'package:ingridio/logic/user_preferences_store.dart';
 import 'package:ingridio/models/user_preferences.dart';
 import 'package:ingridio/screens/auth_gate.dart';
 import 'package:ingridio/screens/personalize_screen.dart';
+import 'package:ingridio/screens/recipe_list_screen.dart';
 import 'package:ingridio/services/auth_service.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -557,6 +558,23 @@ class _ProfileScreenState extends State<ProfileScreen>
                     iconColor: _tertiaryContainer,
                     label: 'Saved',
                     value: n == 1 ? '1 Recipe' : '$n Recipes',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => RecipeListScreen(
+                            title: 'Saved Recipes',
+                            subtitle: 'Recipes you bookmarked',
+                            emptyTitle: 'No saved recipes yet',
+                            emptyBody:
+                                'Tap the heart on any recipe to save it for later.',
+                            emptyIcon: Icons.bookmark_border_rounded,
+                            listenable: SavedRecipesStore.instance,
+                            recipesProvider: () =>
+                                SavedRecipesStore.instance.recipes,
+                          ),
+                        ),
+                      );
+                    },
                   );
                 },
               ),
@@ -572,6 +590,23 @@ class _ProfileScreenState extends State<ProfileScreen>
                     iconColor: _primaryContainer,
                     label: 'Cooked',
                     value: n == 1 ? '1 Recipe' : '$n Recipes',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => RecipeListScreen(
+                            title: 'Cooked Recipes',
+                            subtitle: 'Your cooking history',
+                            emptyTitle: 'No cooked recipes yet',
+                            emptyBody:
+                                'Finish a recipe in cooking mode and tap "Save to cooked" to track your history.',
+                            emptyIcon: Icons.restaurant_menu_rounded,
+                            listenable: CookedRecipesStore.instance,
+                            recipesProvider: () =>
+                                CookedRecipesStore.instance.recipes,
+                          ),
+                        ),
+                      );
+                    },
                   );
                 },
               ),
@@ -830,12 +865,14 @@ class _StatTile extends StatelessWidget {
     required this.iconColor,
     required this.label,
     required this.value,
+    this.onTap,
   });
 
   final IconData icon;
   final Color iconColor;
   final String label;
   final String value;
+  final VoidCallback? onTap;
 
   static const Color _surfaceLow = Color(0xFFFFF1E9);
   static const Color _secondary = Color(0xFF924C00);
@@ -843,7 +880,7 @@ class _StatTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final Widget content = Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: _surfaceLow,
@@ -877,7 +914,25 @@ class _StatTile extends StatelessWidget {
               ],
             ),
           ),
+          if (onTap != null)
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: Color(0xFF8C7164),
+              size: 22,
+            ),
         ],
+      ),
+    );
+    if (onTap == null) {
+      return content;
+    }
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: content,
       ),
     );
   }

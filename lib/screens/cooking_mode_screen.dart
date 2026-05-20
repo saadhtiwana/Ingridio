@@ -138,7 +138,7 @@ class _CookingModeScreenState extends State<CookingModeScreen>
   }
 
   void _saveToCooked() {
-    CookedRecipesStore.instance.add(widget.recipe.id);
+    CookedRecipesStore.instance.add(widget.recipe);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Added to your cooked recipes!'),

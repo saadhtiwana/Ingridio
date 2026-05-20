@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:ingridio/logic/cooked_recipes_store.dart';
 import 'package:ingridio/logic/pantry_manager.dart';
 import 'package:ingridio/logic/saved_recipes_store.dart';
 import 'package:ingridio/logic/user_preferences_store.dart';
@@ -82,6 +83,7 @@ class _BootstrapGateState extends State<_BootstrapGate> {
     await Future.wait<void>(<Future<void>>[
       UserPreferencesStore.loadForCurrentUser(),
       SavedRecipesStore.instance.loadForCurrentUser(),
+      CookedRecipesStore.instance.loadForCurrentUser(),
       PantryManager.instance.loadForCurrentUser(),
     ]);
   }

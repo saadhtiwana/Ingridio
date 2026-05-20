@@ -111,7 +111,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   void _toggleFavorite() {
     final SavedRecipesStore store = SavedRecipesStore.instance;
     final bool was = store.isSaved(_r.id);
-    store.toggle(_r.id);
+    store.toggle(_r);
     setState(() {});
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
